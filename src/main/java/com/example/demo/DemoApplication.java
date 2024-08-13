@@ -4,6 +4,7 @@ import io.micrometer.observation.Observation;
 import io.micrometer.observation.ObservationHandler;
 import io.micrometer.observation.ObservationRegistry;
 import io.micrometer.tracing.handler.TracingObservationHandler;
+//import io.micrometer.tracing.otel.bridge.OtelSpan;
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.trace.Span;
@@ -45,6 +46,20 @@ class DemoObservationContext extends Observation.Context {}
 
 @Component
 class DemoObservationHandler implements ObservationHandler<DemoObservationContext> {
+
+	/**
+	 * If https://github.com/micrometer-metrics/tracing/issues/808 is solved,
+	 * then this would be the implementation of this logic.
+	 * @param context an {@link Observation.Context}
+	 */
+//	@Override
+//	public void onStop(DemoObservationContext context) {
+//		TracingObservationHandler.TracingContext tracingContext = context.get(TracingObservationHandler.TracingContext.class);
+//		Span otelSpan = OtelSpan.toOtel(tracingContext.getSpan());
+//		otelSpan.addEvent("demo.event", Attributes.of(
+//				AttributeKey.stringKey("demo.attribute1"), "value of attribute 1"
+//		));
+//	}
 
 	@Override
 	public void onStop(DemoObservationContext context) {
