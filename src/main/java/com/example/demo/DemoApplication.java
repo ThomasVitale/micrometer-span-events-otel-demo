@@ -4,17 +4,19 @@ import io.micrometer.observation.Observation;
 import io.micrometer.observation.ObservationHandler;
 import io.micrometer.observation.ObservationRegistry;
 import io.micrometer.tracing.handler.TracingObservationHandler;
-//import io.micrometer.tracing.otel.bridge.OtelSpan;
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.trace.Span;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.stereotype.Component;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 
 @SpringBootApplication
 public class DemoApplication {
@@ -47,6 +49,8 @@ class DemoObservationContext extends Observation.Context {}
 @Component
 class DemoObservationHandler implements ObservationHandler<DemoObservationContext> {
 
+	private static final Logger logger = LoggerFactory.getLogger(DemoObservationHandler.class);
+
 	/**
 	 * If https://github.com/micrometer-metrics/tracing/issues/808 is solved,
 	 * then this would be the implementation of this logic.
@@ -64,29 +68,24 @@ class DemoObservationHandler implements ObservationHandler<DemoObservationContex
 	@Override
 	public void onStop(DemoObservationContext context) {
 		TracingObservationHandler.TracingContext tracingContext = context.get(TracingObservationHandler.TracingContext.class);
-		io.micrometer.tracing.Span span = tracingContext.getSpan();
+		if (tracingContext == null) {
+			return;
+		}
 
+		io.micrometer.tracing.Span micrometerSpan = tracingContext.getSpan();
 		try {
-			// Get the class object for OtelSpan implementation
-			Class<?> otelSpanClass = span.getClass();
-
-			// Access the OpenTelemetry native Span object
-			Field privateField = otelSpanClass.getDeclaredField("delegate");
-
-			// Make the private field accessible
-			privateField.setAccessible(true);
-
-			// Retrieve the value of the OpenTelemetry native Span object
-			Object field = privateField.get(span);
-
-			if (field instanceof Span otelSpan) {
+			Method toOtelMethod = tracingContext.getSpan().getClass().getDeclaredMethod("toOtel", io.micrometer.tracing.Span.class);
+			toOtelMethod.setAccessible(true);
+			Object otelSpanObject = toOtelMethod.invoke(null, micrometerSpan);
+			if (otelSpanObject instanceof Span otelSpan) {
 				otelSpan.addEvent("demo.event", Attributes.of(
 						AttributeKey.stringKey("demo.attribute1"), "value of attribute 1"
 				));
 			}
-		} catch (NoSuchFieldException | IllegalAccessException e) {
-			e.printStackTrace();
+		} catch (NoSuchMethodException | InvocationTargetException | IllegalAccessException ex) {
+			logger.warn("It wasn't possible to add the chat prompt content as a span event", ex);
 		}
+
 	}
 
     @Override
